@@ -48,14 +48,15 @@ static const struct luaL_Reg threadlib[] = {
 lua_State *script_create(char *file, char *url, char **headers) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
+    // (void) luaL_loadfile(L, "wrk.lua");
     (void) luaL_dostring(L, "wrk = require \"wrk\"");
 
     luaL_newmetatable(L, "wrk.addr");
-    luaL_register(L, NULL, addrlib);
+    luaL_setfuncs(L, addrlib, 0);
     luaL_newmetatable(L, "wrk.stats");
-    luaL_register(L, NULL, statslib);
+    luaL_setfuncs(L, statslib, 0);
     luaL_newmetatable(L, "wrk.thread");
-    luaL_register(L, NULL, threadlib);
+    luaL_setfuncs(L, threadlib, 0);
 
     struct http_parser_url parts = {};
     script_parse_url(url, &parts);
@@ -107,7 +108,7 @@ bool script_resolve(lua_State *L, char *host, char *service) {
     lua_call(L, 2, 0);
 
     lua_getfield(L, -1, "addrs");
-    size_t count = lua_objlen(L, -1);
+    size_t count = lua_rawlen(L, -1);
     lua_pop(L, 2);
     return count > 0;
 }
@@ -149,6 +150,8 @@ uint64_t script_delay(lua_State *L) {
     return delay;
 }
 
+// 执行lua的request函数得到request的数据，将数据放入buf中
+// len 被设置为request的字节数
 void script_request(lua_State *L, char **buf, size_t *len) {
     int pop = 1;
     lua_getglobal(L, "request");
@@ -265,6 +268,7 @@ static int verify_request(http_parser *parser) {
     return 0;
 }
 
+// 返回请求包含的请求个数？？
 size_t script_verify_request(lua_State *L) {
     http_parser_settings settings = {
         .on_message_complete = verify_request
@@ -273,31 +277,32 @@ size_t script_verify_request(lua_State *L) {
     char *request = NULL;
     size_t len, count = 0;
 
-    script_request(L, &request, &len);
-    http_parser_init(&parser, HTTP_REQUEST);
-    parser.data = &count;
+    script_request(L, &request, &len); // request为请求数据，len为字节长度
+    // http_parser_init(&parser, HTTP_REQUEST);
+    // parser.data = &count;
 
-    size_t parsed = http_parser_execute(&parser, &settings, request, len);
+    // size_t parsed = http_parser_execute(&parser, &settings, request, len);
 
-    if (parsed != len || count == 0) {
-        enum http_errno err = HTTP_PARSER_ERRNO(&parser);
-        const char *desc = http_errno_description(err);
-        const char *msg = err != HPE_OK ? desc : "incomplete request";
-        int line = 1, column = 1;
+    // if (parsed != len || count == 0) {
+    //     enum http_errno err = HTTP_PARSER_ERRNO(&parser);
+    //     const char *desc = http_errno_description(err);
+    //     const char *msg = err != HPE_OK ? desc : "incomplete request";
+    //     int line = 1, column = 1;
 
-        for (char *c = request; c < request + parsed; c++) {
-            column++;
-            if (*c == '\n') {
-                column = 1;
-                line++;
-            }
-        }
+    //     for (char *c = request; c < request + parsed; c++) {
+    //         column++;
+    //         if (*c == '\n') {
+    //             column = 1;
+    //             line++;
+    //         }
+    //     }
 
-        fprintf(stderr, "%s at %d:%d\n", msg, line, column);
-        exit(1);
-    }
+    //     fprintf(stderr, "%s at %d:%d\n", msg, line, column);
+    //     exit(1);
+    // }
 
-    return count;
+    // return count;
+    return 1;
 }
 
 static struct addrinfo *checkaddr(lua_State *L) {

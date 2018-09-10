@@ -1,4 +1,4 @@
-CFLAGS  += -std=c99 -Wall -O2 -D_REENTRANT
+CFLAGS  += -g -std=c99 -Wall -O2 -D_REENTRANT
 LIBS    := -lpthread -lm -lssl -lcrypto
 
 TARGET  := $(shell uname -s | tr '[A-Z]' '[a-z]' 2>/dev/null || echo unknown)
@@ -23,26 +23,25 @@ BIN  := wrk
 VER  ?= $(shell git describe --tags --always --dirty)
 
 ODIR := obj
-OBJ  := $(patsubst %.c,$(ODIR)/%.o,$(SRC)) $(ODIR)/bytecode.o $(ODIR)/version.o
-LIBS := -lluajit-5.1 $(LIBS)
+OBJ  := $(patsubst %.c,$(ODIR)/%.o,$(SRC)) $(ODIR)/version.o #$(ODIR)/bytecode.o
+LIBS := -llua $(LIBS)
 
 DEPS    :=
 CFLAGS  += -I$(ODIR)/include
 LDFLAGS += -L$(ODIR)/lib
-
-ifneq ($(WITH_LUAJIT),)
-	CFLAGS  += -I$(WITH_LUAJIT)/include
-	LDFLAGS += -L$(WITH_LUAJIT)/lib
-else
-	CFLAGS  += -I$(ODIR)/include/luajit-2.1
-	DEPS    += $(ODIR)/lib/libluajit-5.1.a
-endif
 
 ifneq ($(WITH_OPENSSL),)
 	CFLAGS  += -I$(WITH_OPENSSL)/include
 	LDFLAGS += -L$(WITH_OPENSSL)/lib
 else
 	DEPS += $(ODIR)/lib/libssl.a
+endif
+
+ifneq ($(WITH_LUA),)
+	CFLAGS  += -I$(WITH_LUA)/include
+	LDFLAGS += -L$(WITH_LUA)/lib
+else
+	DEPS += $(ODIR)/lib/liblua.a
 endif
 
 all: $(BIN)
@@ -59,10 +58,6 @@ $(OBJ): config.h Makefile $(DEPS) | $(ODIR)
 $(ODIR):
 	@mkdir -p $@
 
-$(ODIR)/bytecode.o: src/wrk.lua
-	@echo LUAJIT $<
-	@$(SHELL) -c 'PATH=obj/bin:$(PATH) luajit -b $(CURDIR)/$< $(CURDIR)/$@'
-
 $(ODIR)/version.o:
 	@echo 'const char *VERSION="$(VER)";' | $(CC) -xc -c -o $@ -
 
@@ -72,21 +67,20 @@ $(ODIR)/%.o : %.c
 
 # Dependencies
 
-LUAJIT  := $(notdir $(patsubst %.tar.gz,%,$(wildcard deps/LuaJIT*.tar.gz)))
+LUA  := $(notdir $(patsubst %.tar.gz,%,$(wildcard deps/lua-5.3*.tar.gz)))
 OPENSSL := $(notdir $(patsubst %.tar.gz,%,$(wildcard deps/openssl*.tar.gz)))
 
 OPENSSL_OPTS = no-shared no-psk no-srp no-dtls no-idea --prefix=$(abspath $(ODIR))
 
-$(ODIR)/$(LUAJIT):  deps/$(LUAJIT).tar.gz  | $(ODIR)
+$(ODIR)/$(LUA):  deps/$(LUA).tar.gz  | $(ODIR)
 	@tar -C $(ODIR) -xf $<
 
 $(ODIR)/$(OPENSSL): deps/$(OPENSSL).tar.gz | $(ODIR)
 	@tar -C $(ODIR) -xf $<
 
-$(ODIR)/lib/libluajit-5.1.a: $(ODIR)/$(LUAJIT)
-	@echo Building LuaJIT...
-	@$(MAKE) -C $< PREFIX=$(abspath $(ODIR)) BUILDMODE=static install
-	@cd $(ODIR)/bin && ln -s luajit-2.1.0-beta3 luajit
+$(ODIR)/lib/liblua.a: $(ODIR)/$(LUA)
+	@echo Building Lua...
+	@$(MAKE) -C $< INSTALL_TOP=$(abspath $(ODIR)) linux install
 
 $(ODIR)/lib/libssl.a: $(ODIR)/$(OPENSSL)
 	@echo Building OpenSSL...

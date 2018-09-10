@@ -233,6 +233,7 @@ void *thread_main(void *arg) {
     return NULL;
 }
 
+// 创建连接
 static int connect_socket(thread *thread, connection *c) {
     struct addrinfo *addr = thread->addr;
     struct aeEventLoop *loop = thread->loop;
@@ -330,9 +331,9 @@ static int response_complete(http_parser *parser) {
     thread->complete++;
     thread->requests++;
 
-    if (status > 399) {
-        thread->errors.status++;
-    }
+    // if (status > 399) {
+    //     thread->errors.status++;
+    // }
 
     if (c->headers.buffer) {
         *c->headers.cursor++ = '\0';
@@ -434,8 +435,10 @@ static void socket_readable(aeEventLoop *loop, int fd, void *data, int mask) {
             case RETRY: return;
         }
 
-        if (http_parser_execute(&c->parser, &parser_settings, c->buf, n) != n) goto error;
-        if (n == 0 && !http_body_is_final(&c->parser)) goto error;
+        response_complete(&c->parser);
+
+        // if (http_parser_execute(&c->parser, &parser_settings, c->buf, n) != n) goto error;
+        // if (n == 0 && !http_body_is_final(&c->parser)) goto error;
 
         c->thread->bytes += n;
     } while (n == RECVBUF && sock.readable(c) > 0);
