@@ -48,8 +48,7 @@ static const struct luaL_Reg threadlib[] = {
 lua_State *script_create(char *file, char *url, char **headers) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
-    // (void) luaL_loadfile(L, "wrk.lua");
-    (void) luaL_dostring(L, "wrk = require \"wrk\"");
+    (void) luaL_dostring(L, "wrk = require \"src.wrk\"");
 
     luaL_newmetatable(L, "wrk.addr");
     luaL_setfuncs(L, addrlib, 0);
@@ -151,7 +150,7 @@ uint64_t script_delay(lua_State *L) {
 }
 
 // 执行lua的request函数得到request的数据，将数据放入buf中
-// len 被设置为request的字节数
+// len 被设置为request的字节数，buf和len均为输出
 void script_request(lua_State *L, char **buf, size_t *len) {
     int pop = 1;
     lua_getglobal(L, "request");
@@ -262,47 +261,47 @@ void script_done(lua_State *L, stats *latency, stats *requests) {
     lua_pop(L, 1);
 }
 
-static int verify_request(http_parser *parser) {
+static int verify_request(srpc_parser *parser) {
     size_t *count = parser->data;
     (*count)++;
     return 0;
 }
 
-// 返回请求包含的请求个数？？
+// 检查请求的合法性
+// 并返回请求包含的请求个数，在pipeline的情况下，会大于1
 size_t script_verify_request(lua_State *L) {
-    http_parser_settings settings = {
+    srpc_parser_settings settings = {
         .on_message_complete = verify_request
     };
-    http_parser parser;
+    srpc_parser parser;
     char *request = NULL;
     size_t len, count = 0;
 
     script_request(L, &request, &len); // request为请求数据，len为字节长度
-    // http_parser_init(&parser, HTTP_REQUEST);
-    // parser.data = &count;
+    srpc_parser_init(&parser, SRPC_REQUEST);
+    parser.data = &count;
 
-    // size_t parsed = http_parser_execute(&parser, &settings, request, len);
+    size_t parsed = srpc_parser_execute(&parser, &settings, request, len);
 
-    // if (parsed != len || count == 0) {
-    //     enum http_errno err = HTTP_PARSER_ERRNO(&parser);
-    //     const char *desc = http_errno_description(err);
-    //     const char *msg = err != HPE_OK ? desc : "incomplete request";
-    //     int line = 1, column = 1;
+    if (parsed != len || count == 0) {
+        enum srpc_errno err = SRPC_PARSER_ERRNO(&parser);
+        const char *desc = srpc_errno_description(err);
+        const char *msg = err != SPE_OK ? desc : "incomplete request";
+        int line = 1, column = 1;
 
-    //     for (char *c = request; c < request + parsed; c++) {
-    //         column++;
-    //         if (*c == '\n') {
-    //             column = 1;
-    //             line++;
-    //         }
-    //     }
+        for (char *c = request; c < request + parsed; c++) {
+            column++;
+            if (*c == '\n') {
+                column = 1;
+                line++;
+            }
+        }
 
-    //     fprintf(stderr, "%s at %d:%d\n", msg, line, column);
-    //     exit(1);
-    // }
+        fprintf(stderr, "%s at %d:%d\n", msg, line, column);
+        exit(1);
+    }
 
-    // return count;
-    return 1;
+    return count;
 }
 
 static struct addrinfo *checkaddr(lua_State *L) {

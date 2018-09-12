@@ -31,7 +31,9 @@ static struct sock sock = {
     .readable = sock_readable
 };
 
-static struct http_parser_settings parser_settings = {
+static schema_t SCHEMA = HTTP;
+
+static struct srpc_parser_settings parser_settings = {
     .on_message_complete = response_complete
 };
 
@@ -85,6 +87,12 @@ int main(int argc, char **argv) {
         sock.readable = ssl_readable;
     }
 
+    if (!strncmp("srpc", schema, 4)) {
+        SCHEMA = SRPC;
+    } else {
+        SCHEMA = HTTP;
+    }
+
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT,  SIG_IGN);
 
@@ -110,7 +118,7 @@ int main(int argc, char **argv) {
         script_init(L, t, argc - optind, &argv[optind]);
 
         if (i == 0) {
-            cfg.pipeline = script_verify_request(t->L);
+            cfg.pipeline = 1;    // script_verify_request(t->L);
             cfg.dynamic  = !script_is_static(t->L);
             cfg.delay    = script_has_delay(t->L);
             if (script_want_response(t->L)) {
@@ -296,7 +304,7 @@ static int delay_request(aeEventLoop *loop, long long id, void *data) {
     return AE_NOMORE;
 }
 
-static int header_field(http_parser *parser, const char *at, size_t len) {
+static int header_field(srpc_parser *parser, const char *at, size_t len) {
     connection *c = parser->data;
     if (c->state == VALUE) {
         *c->headers.cursor++ = '\0';
@@ -306,7 +314,7 @@ static int header_field(http_parser *parser, const char *at, size_t len) {
     return 0;
 }
 
-static int header_value(http_parser *parser, const char *at, size_t len) {
+static int header_value(srpc_parser *parser, const char *at, size_t len) {
     connection *c = parser->data;
     if (c->state == FIELD) {
         *c->headers.cursor++ = '\0';
@@ -316,13 +324,13 @@ static int header_value(http_parser *parser, const char *at, size_t len) {
     return 0;
 }
 
-static int response_body(http_parser *parser, const char *at, size_t len) {
+static int response_body(srpc_parser *parser, const char *at, size_t len) {
     connection *c = parser->data;
     buffer_append(&c->body, at, len);
     return 0;
 }
 
-static int response_complete(http_parser *parser) {
+static int response_complete(srpc_parser *parser) {
     connection *c = parser->data;
     thread *thread = c->thread;
     uint64_t now = time_us();
@@ -349,14 +357,14 @@ static int response_complete(http_parser *parser) {
         aeCreateFileEvent(thread->loop, c->fd, AE_WRITABLE, socket_writeable, c);
     }
 
-    if (!http_should_keep_alive(parser)) {
-        reconnect_socket(thread, c);
-        goto done;
-    }
+    // if (!srpc_should_keep_alive(parser)) {
+    //     reconnect_socket(thread, c);
+    //     goto done;
+    // }
 
-    http_parser_init(parser, HTTP_RESPONSE);
+    srpc_parser_init(parser, HTTP_RESPONSE);
 
-  done:
+//   done:
     return 0;
 }
 
@@ -369,7 +377,7 @@ static void socket_connected(aeEventLoop *loop, int fd, void *data, int mask) {
         case RETRY: return;
     }
 
-    http_parser_init(&c->parser, HTTP_RESPONSE);
+    srpc_parser_init(&c->parser, SRPC_RESPONSE);
     c->written = 0;
 
     aeCreateFileEvent(c->thread->loop, fd, AE_READABLE, socket_readable, c);
@@ -435,10 +443,8 @@ static void socket_readable(aeEventLoop *loop, int fd, void *data, int mask) {
             case RETRY: return;
         }
 
-        response_complete(&c->parser);
-
-        // if (http_parser_execute(&c->parser, &parser_settings, c->buf, n) != n) goto error;
-        // if (n == 0 && !http_body_is_final(&c->parser)) goto error;
+        if (srpc_parser_execute(&c->parser, &parser_settings, c->buf, n) != n) goto error;
+        if (n == 0 && !srpc_body_is_final(&c->parser)) goto error;
 
         c->thread->bytes += n;
     } while (n == RECVBUF && sock.readable(c) > 0);

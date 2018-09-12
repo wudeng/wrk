@@ -699,7 +699,7 @@ size_t http_parser_execute (http_parser *parser,
   for (p=data; p != data + len; p++) {
     ch = *p;
 
-    if (PARSING_HEADER(CURRENT_STATE()))
+    if (PARSING_HEADER(CURRENT_STATE())) // 如果头部还没有完，则检查头部大小
       COUNT_HEADER_SIZE(1);
 
 reexecute:

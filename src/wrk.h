@@ -15,6 +15,7 @@
 #include "stats.h"
 #include "ae.h"
 #include "http_parser.h"
+#include "srpc_parser.h"
 
 #define RECVBUF  8192
 
@@ -46,7 +47,7 @@ typedef struct {
 
 typedef struct connection {
     thread *thread;
-    http_parser parser;
+    srpc_parser parser;
     enum {
         FIELD, VALUE
     } state;
@@ -60,7 +61,9 @@ typedef struct connection {
     uint64_t pending;
     buffer headers;
     buffer body;
-    char buf[RECVBUF];
+    uint8_t buf[RECVBUF];
 } connection;
+
+typedef enum schema_t {HTTP, SRPC} schema_t;
 
 #endif /* WRK_H */
