@@ -32,17 +32,6 @@ do {                                                                 \
   parser->srpc_errno = (e);                                          \
 } while(0)
 
-
-/* Map errno values to strings for human-readable output */
-#define SRPC_STRERROR_GEN(n, s) { "SPE_" #n, s },
-static struct {
-  const char *name;
-  const char *description;
-} srpc_strerror_tab[] = {
-  SRPC_ERRNO_MAP(SRPC_STRERROR_GEN)
-};
-#undef SRPC_STRERROR_GEN
-
 /* Run the notify callback FOR, returning ER if it fails */
 #define CALLBACK_NOTIFY_(FOR, ER)                                    \
 do {                                                                 \
@@ -163,28 +152,28 @@ reexecute:
             case s_start_req:
             case s_start_res:
             {
-                parser->len = (ch & 0xff);
+                parser->len = (unsigned char) ch;
                 UPDATE_STATE(s_message_len);
                 break;
             }
 
             case s_message_len:
             {
-                parser->len = (parser->len << 8) | (ch & 0xff);
+                parser->len = (parser->len << 8) | (unsigned char) ch;
                 UPDATE_STATE(s_header_len_start);
                 break;
             }
 
             case s_header_len_start:
             {
-                parser->hlen = (ch & 0xff);
+                parser->hlen = (unsigned char) ch;
                 UPDATE_STATE(s_header_len);
                 break;
             }
 
             case s_header_len:
             {
-                parser->hlen = (parser->hlen << 8) | (ch & 0xff);
+                parser->hlen = (parser->hlen << 8) | (unsigned char) ch;
                 parser->content_length = parser->len - parser->hlen - 2;
                 UPDATE_STATE(s_headers_identity);
                 break;
