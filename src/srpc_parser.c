@@ -31,6 +31,17 @@ do {                                                                 \
   parser->srpc_errno = (e);                                          \
 } while(0)
 
+
+/* Map errno values to strings for human-readable output */
+#define SRPC_STRERROR_GEN(n, s) { "SPE_" #n, s },
+static struct {
+  const char *name;
+  const char *description;
+} srpc_strerror_tab[] = {
+  SRPC_ERRNO_MAP(SRPC_STRERROR_GEN)
+};
+#undef SRPC_STRERROR_GEN
+
 /* Run the notify callback FOR, returning ER if it fails */
 #define CALLBACK_NOTIFY_(FOR, ER)                                    \
 do {                                                                 \

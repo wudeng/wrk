@@ -125,16 +125,6 @@ enum srpc_errno {
 };
 #undef SRPC_ERRNO_GEN
 
-/* Map errno values to strings for human-readable output */
-#define SRPC_STRERROR_GEN(n, s) { "SPE_" #n, s },
-static struct {
-  const char *name;
-  const char *description;
-} srpc_strerror_tab[] = {
-  SRPC_ERRNO_MAP(SRPC_STRERROR_GEN)
-};
-#undef SRPC_STRERROR_GEN
-
 struct srpc_parser_settings {
   srpc_cb      on_message_begin;
   srpc_data_cb on_url;
