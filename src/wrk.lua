@@ -54,6 +54,39 @@ local function encode_header(header)
     return table.concat(packlist)
 end
 
+local function decode_key(chunk, pos)
+    local key, byte
+    byte, _ = string.unpack("B", chunk, pos)
+    if byte & 0x80 == 0 then -- string
+        key, pos = string.unpack(">s1", chunk, pos)
+    elseif byte & 0x80 == 0x80 then -- static table
+        byte, pos = string.unpack("B", chunk, pos)
+        key = ktt[byte & 0x7f]
+    else
+        error "not supported key format"
+    end
+    return key, pos
+end
+
+local function decode_value(chunk, pos)
+    local len, value, byte
+    byte, _ = string.unpack("B", chunk, pos)
+    if byte & 0xc0 == 0 then
+        len, pos = string.unpack("B", chunk, pos)
+        value, pos = string.unpack(string.format(">c%s", len), chunk, pos)
+    elseif byte & 0xc0 == 0x40 then
+        local i1, i2
+        i1, i2, pos = string.unpack("BB", chunk, pos)
+        len  = ((i1 & 0x3f) << 8) + i2
+        value, pos = string.unpack(string.format(">c%s", len), chunk, pos)
+    elseif byte & 0x80 == 0x80 then
+        byte, pos = string.unpack("B", chunk, pos)
+        value = vtt[byte & 0x7f]
+    else
+        error "not supported value format"
+    end
+    return value, pos
+end
 
 local wrk = {
    scheme  = "http",
@@ -146,6 +179,27 @@ function wrk.format_srpc(method, data)
     table.insert(packlist, headerchunk)
     table.insert(packlist, payloadchunk)
     return table.concat(packlist)
+end
+
+function wrk.decode_header(chunk)
+    local header = {}
+    local pos = 1
+    while pos < #chunk do
+        local key, value
+        key, pos = decode_key(chunk, pos)
+        value, pos = decode_value(chunk, pos)
+        header[key] = value
+    end
+    return header
+end
+
+function wrk.decode_body(msg)
+    local ok, err = cjson.decode(msg)
+    if ok ~= nil then
+        return true, ok
+    else
+        return false, err
+    end
 end
 
 return wrk

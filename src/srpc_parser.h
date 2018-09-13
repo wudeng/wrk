@@ -81,6 +81,7 @@ enum srpc_parser_type { SRPC_REQUEST, SRPC_RESPONSE };
   XX(CB_url, "the on_url callback failed")                           \
   XX(CB_header_field, "the on_header_field callback failed")         \
   XX(CB_header_value, "the on_header_value callback failed")         \
+  XX(CB_headers, "the on_header_value callback failed")         \
   XX(CB_headers_complete, "the on_headers_complete callback failed") \
   XX(CB_body, "the on_body callback failed")                         \
   XX(CB_message_complete, "the on_message_complete callback failed") \
@@ -125,22 +126,13 @@ enum srpc_errno {
 };
 #undef SRPC_ERRNO_GEN
 
-/* Map errno values to strings for human-readable output */
-#define SRPC_STRERROR_GEN(n, s) { "SPE_" #n, s },
-static struct {
-  const char *name;
-  const char *description;
-} srpc_strerror_tab[] = {
-  SRPC_ERRNO_MAP(SRPC_STRERROR_GEN)
-};
-#undef SRPC_STRERROR_GEN
-
 struct srpc_parser_settings {
   srpc_cb      on_message_begin;
   srpc_data_cb on_url;
   srpc_data_cb on_status;
   srpc_data_cb on_header_field;
   srpc_data_cb on_header_value;
+  srpc_data_cb on_headers;
   srpc_cb      on_headers_complete;
   srpc_data_cb on_body;
   srpc_cb      on_message_complete;
@@ -162,8 +154,8 @@ struct srpc_parser {
 
   uint32_t nread;          /* # bytes read in various scenarios */
   uint64_t content_length; /* # bytes in body (0 if no Content-Length header) */
-//   uint16_t len;     /*total length*/
-//   uint16_t hlen;
+  uint16_t len;     /*total length*/
+  uint16_t hlen;
 
   /** READ-ONLY **/
   unsigned short http_major;
@@ -189,7 +181,7 @@ void srpc_parser_init(srpc_parser *parser, enum srpc_parser_type type);
  * `parser->srpc_errno` on error. */
 size_t srpc_parser_execute(srpc_parser *parser,
                            const srpc_parser_settings *settings,
-                           const uint8_t *data,
+                           const char *data,
                            size_t len);
 
 /* Checks if this is the final chunk of the body. */
