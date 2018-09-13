@@ -3,6 +3,8 @@
 #include "wrk.h"
 #include "script.h"
 #include "main.h"
+#include <assert.h>
+#include <stdio.h>
 
 static struct config {
     uint64_t connections;
@@ -118,12 +120,14 @@ int main(int argc, char **argv) {
         script_init(L, t, argc - optind, &argv[optind]);
 
         if (i == 0) {
-            cfg.pipeline = 1;    // script_verify_request(t->L);
+            cfg.pipeline = 1;//script_verify_request(t->L);
+            assert(cfg.pipeline == 1);
             cfg.dynamic  = !script_is_static(t->L);
             cfg.delay    = script_has_delay(t->L);
             if (script_want_response(t->L)) {
-                parser_settings.on_header_field = header_field;
-                parser_settings.on_header_value = header_value;
+                // parser_settings.on_header_field = header_field;
+                // parser_settings.on_header_value = header_value;
+                parser_settings.on_headers      = response_headers;
                 parser_settings.on_body         = response_body;
             }
         }
@@ -304,22 +308,28 @@ static int delay_request(aeEventLoop *loop, long long id, void *data) {
     return AE_NOMORE;
 }
 
-static int header_field(srpc_parser *parser, const char *at, size_t len) {
-    connection *c = parser->data;
-    if (c->state == VALUE) {
-        *c->headers.cursor++ = '\0';
-        c->state = FIELD;
-    }
-    buffer_append(&c->headers, at, len);
-    return 0;
-}
+// static int header_field(srpc_parser *parser, const uint8_t *at, size_t len) {
+//     connection *c = parser->data;
+//     if (c->state == VALUE) {
+//         *c->headers.cursor++ = '\0';
+//         c->state = FIELD;
+//     }
+//     buffer_append(&c->headers, at, len);
+//     return 0;
+// }
 
-static int header_value(srpc_parser *parser, const char *at, size_t len) {
+// static int header_value(srpc_parser *parser, const uint8_t *at, size_t len) {
+//     connection *c = parser->data;
+//     if (c->state == FIELD) {
+//         *c->headers.cursor++ = '\0';
+//         c->state = VALUE;
+//     }
+//     buffer_append(&c->headers, at, len);
+//     return 0;
+// }
+
+static int response_headers(srpc_parser * parser, const char *at, size_t len) {
     connection *c = parser->data;
-    if (c->state == FIELD) {
-        *c->headers.cursor++ = '\0';
-        c->state = VALUE;
-    }
     buffer_append(&c->headers, at, len);
     return 0;
 }
@@ -331,10 +341,11 @@ static int response_body(srpc_parser *parser, const char *at, size_t len) {
 }
 
 static int response_complete(srpc_parser *parser) {
+    // printf("response_complete\n");
     connection *c = parser->data;
     thread *thread = c->thread;
     uint64_t now = time_us();
-    int status = parser->status_code;
+    // int status = parser->status_code;
 
     thread->complete++;
     thread->requests++;
@@ -344,9 +355,9 @@ static int response_complete(srpc_parser *parser) {
     // }
 
     if (c->headers.buffer) {
-        *c->headers.cursor++ = '\0';
-        script_response(thread->L, status, &c->headers, &c->body);
-        c->state = FIELD;
+        // *c->headers.cursor++ = '\0';
+        script_response(thread->L, &c->headers, &c->body);
+        // c->state = FIELD;
     }
 
     if (--c->pending == 0) {
@@ -362,7 +373,7 @@ static int response_complete(srpc_parser *parser) {
     //     goto done;
     // }
 
-    srpc_parser_init(parser, HTTP_RESPONSE);
+    srpc_parser_init(parser, SRPC_RESPONSE);
 
 //   done:
     return 0;

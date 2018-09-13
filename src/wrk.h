@@ -61,7 +61,7 @@ typedef struct connection {
     uint64_t pending;
     buffer headers;
     buffer body;
-    uint8_t buf[RECVBUF];
+    char buf[RECVBUF];
 } connection;
 
 typedef enum schema_t {HTTP, SRPC} schema_t;
