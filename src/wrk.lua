@@ -1,4 +1,3 @@
-local cjson = require "cjson"
 local ktt = {} -- key type table
 ktt[1] = "codec";        ktt["codec"]           = 1
 ktt[2] = "method";       ktt["method"]          = 2

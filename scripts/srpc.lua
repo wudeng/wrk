@@ -2,7 +2,7 @@
 -- ./wrk -c1 -t1 -d1s -s scripts/srpc.lua srpc://127.1:8181
 
 function init()
-    req = wrk.format_srpc("node.register", {name = "s01"})
+    req = wrk.format("node.register", {name = "s01"})
     -- print("#req = ", #req)
 end
 
