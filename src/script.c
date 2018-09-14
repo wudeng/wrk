@@ -45,8 +45,12 @@ static const struct luaL_Reg threadlib[] = {
     { NULL,         NULL                   }
 };
 
+int luaopen_cjson(lua_State *L);
+
 lua_State *script_create(char *file, char *url, char **headers) {
     lua_State *L = luaL_newstate();
+    luaL_requiref(L, "cjson", luaopen_cjson, 0);
+    lua_pop(L, 1);
     luaL_openlibs(L);
     (void) luaL_dostring(L, "wrk = require \"src.wrk\"");
 

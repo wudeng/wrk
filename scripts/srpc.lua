@@ -11,7 +11,8 @@ function request()
 end
 
 function response(headers, body)
-    local h = wrk.decode_header(headers)
-    local ok, tb = wrk.decode_body(body)
-    print(ok, h.method, h.session, tb and tb.name)
+    -- local h = wrk.decode_header(headers)
+    -- local ok, tb = wrk.decode_body(body)
+    -- print(ok, h.method, h.session, tb and tb.name)
+    -- print(ok, h.code)
 end

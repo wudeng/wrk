@@ -1,5 +1,5 @@
-CFLAGS  += -g -std=c99 -Wall -O2 -D_REENTRANT
-LIBS    := -lpthread -lm -lssl -lcrypto
+CFLAGS  += -g -std=c99 -Wall -pthread
+LIBS    := -lm -lssl -lcrypto -pthread
 
 TARGET  := $(shell uname -s | tr '[A-Z]' '[a-z]' 2>/dev/null || echo unknown)
 
@@ -18,7 +18,7 @@ else ifeq ($(TARGET), freebsd)
 endif
 
 SRC  := wrk.c net.c ssl.c aprintf.c stats.c script.c units.c \
-		ae.c zmalloc.c http_parser.c srpc_parser.c
+		ae.c zmalloc.c http_parser.c srpc_parser.c lua_cjson.c strbuf.c fpconv.c
 BIN  := wrk
 VER  ?= $(shell git describe --tags --always --dirty)
 
@@ -102,6 +102,6 @@ endif
 .SUFFIXES:
 .SUFFIXES: .c .o .lua
 
-vpath %.c   src
+vpath %.c   src 3rd/lua-cjson
 vpath %.h   src
 vpath %.lua scripts
